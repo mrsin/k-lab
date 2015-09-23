@@ -1,3 +1,4 @@
 # k-lab
 Роботы, библиотеки, примеры и документация K-Lab:
-http://vk.com/k_lab
+
+http://vk.com/k__lab
