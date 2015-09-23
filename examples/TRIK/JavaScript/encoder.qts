@@ -1,0 +1,75 @@
+// Constants.
+var ticksPer360 = 334;
+var ticksForTurn90 = 150;
+
+// Keys.
+var stopKey = 108;
+var startKey = 105;
+
+// Motors.
+var left = brick.motor("M1");
+var right = brick.motor("M3");
+
+// Encoders for motors.
+var leftEncoder = brick.encoder("B1");
+var rightEncoder = brick.encoder("B3");
+
+brick.run();
+
+var key = 0;
+function wasPressed(_key) {
+  key = 0;
+  if(brick.keys().wasPressed(_key))
+  {
+    key = _key;
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+var next = 0;
+
+while(!next) {
+  while(!(wasPressed(startKey)||wasPressed(stopKey))) {
+    brick.wait(100);
+  }
+  switch(key) {
+    case startKey:
+      next = 1;
+      break;
+    case stopKey:
+      brick.stop();
+      brick.quit();
+      break;
+  }
+  brick.wait(1000);
+}
+
+// Automata states.
+var STATE_START = 1;
+var STATE_TURN90 = 2;
+var STATE_FINISH = 3;
+// 
+// Automata initial state.
+var state = STATE_START;
+print("state start");
+
+// Main loop.
+while (true) {
+  // Terminate on key press.
+  if (brick.keys().wasPressed(stopKey)) {
+    break;
+  }
+  // Read ALL sensors.
+  var leftCounter = leftEncoder.read();
+  var rightCounter = rightEncoder.read();
+  // Debug.
+  print("left = " + leftCounter + ", right = " + rightEncoder);
+  brick.wait(200);
+}
+
+brick.stop();
+brick.quit();

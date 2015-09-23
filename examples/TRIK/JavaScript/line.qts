@@ -1,0 +1,75 @@
+// Motors.
+var left = brick.motor("M2");
+var right = brick.motor("M1");
+
+// Encoders for motors.
+var leftEncoder = brick.encoder("B2");
+var rightEncoder = brick.encoder("B1");
+
+// Line sensors from left to right
+var lineSensor1 = brick.sensor("A1");
+var lineSensor2 = brick.sensor("A2");
+var lineSensor3 = brick.sensor("A3"); //inverse
+var lineSensor4 = brick.sensor("A4");
+var lineSensor5 = brick.sensor("A5");
+
+//koefs
+var k_p = 1;
+var k_i = 0;
+var k_d = 0;
+var speed = 70;
+
+brick.run();
+
+x_old = 0;
+x_int = 0;
+
+print("start");
+
+// Main loop.
+while (true) {
+  
+  // Terminate on key press.
+  /*if (brick.keys().wasPressed(stopKey)) {
+    break;
+  }*/
+
+  // Read ALL sensors.
+  var leftCounter = leftEncoder.read();
+  var rightCounter = rightEncoder.read();
+
+  var line1 = lineSensor1.read();
+  var line2 = lineSensor2.read();
+  var line3 = lineSensor3.read();
+  var line4 = lineSensor4.read();
+  var line5 = lineSensor5.read();
+
+  if (line1 <= 15) {line1 = 0;} else {line1 = 1;}
+  if (line2 <= 50) {line2 = 0;} else {line2 = 1;}
+  if (line3 >= 50) {line3 = 0;} else {line3 = 1;}
+  if (line4 <= 50) {line4 = 0;} else {line4 = 1;}
+  if (line5 <= 20) {line5 = 0;} else {line5 = 1;}
+
+  var x = 0;
+
+  if ((line2 == 1) && (line3 == 0) && (line4 == 1)) {x=0;}
+  if ((line2 == 1) && (line3 == 0) && (line4 == 0)) {x=-10;}
+  if ((line2 == 0) && (line3 == 0) && (line4 == 1)) {x=10;}
+  if ((line2 == 1) && (line3 == 1) && (line4 == 0)) {x=-20;}
+  if ((line2 == 0) && (line3 == 1) && (line4 == 1)) {x=20;}
+  if ((line2 == 1) && (line3 == 1) && (line4 == 1)) {x=30}
+  if ((line2 == 0) && (line3 == 0) && (line4 == 0)) {x=0;}
+
+
+  u = k_p*x + k_d*(x - x_old) + k_i*x_int;	
+  x_int += x;
+  x_old = x;
+
+  left.setPower(-speed - u);
+
+  right.setPower(-speed + u);	  
+
+  print("Line: " + line1 + line2 + line3 + line4 + line5 + " u=" + u + " x=" + x);
+
+  brick.wait(1000);
+}

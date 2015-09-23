@@ -1,0 +1,1176 @@
+//Stop motors:
+
+//i2cset -y 2 0x48 0x15 0x0 w
+
+//i2cset -y 2 0x48 0x14 0x0 w
+
+//Stop servo:
+
+//echo 0 > /sys/class/pwm/ehrpwm.1:1/duty_ns
+
+//Run servo:
+
+//echo 2200000 > /sys/class/pwm/ehrpwm.1:1/duty_ns
+
+//echo 1400000 > /sys/class/pwm/ehrpwm.1:1/duty_ns
+
+
+
+
+
+//brick.run(); --jk: only for event-driven mode
+
+
+
+// Servo.
+
+var servo = brick.motor("E1");
+
+
+
+// Motors.
+
+var leftMotor_setPower = brick.motor("M2").setPower;
+
+var rightMotor_setPower = brick.motor("M1").setPower;
+
+
+
+// Encoders for motors.
+
+var leftEncoder_read = brick.encoder("B2").read;
+
+var rightEncoder_read = brick.encoder("B1").read;
+
+	
+
+
+
+// Line sensors from left to right
+
+var lineSensor1_read = brick.sensor("A1").read;
+
+var lineSensor2_read = brick.sensor("A2").read;
+
+var lineSensor3_read = brick.sensor("A3").read; //inverse
+
+var lineSensor4_read = brick.sensor("A4").read;
+
+var lineSensor5_read = brick.sensor("A5").read;
+
+
+
+//koefs
+
+var k_p = 70;
+
+var k_i = 10;
+
+var k_d = 10;
+
+var speed = 80;
+
+
+
+//const
+
+var encod_cross = 260;
+
+var close_box_size = 23;//20
+
+var far_box_size = 16;//12
+
+var mid_box_size = 20;
+//(far_box_size + close_box_size)/2;
+
+var fire_delta = 2;
+
+var fire_stop_timeout = 25000;
+
+var guns = [
+
+  {
+
+    "left_close" : 35,
+
+    "right_close" : 29,
+
+    "close" : 43 ,
+
+    "far" : 13,
+
+    "left_far" : 35,
+
+    "right_far" : 29,
+
+    "has_fired" : 0,
+
+    "duration" : 90
+
+  },
+
+  {
+
+    "left_close" : 22,
+
+    "right_close" : -8,
+
+    "close" : 14,
+
+    "left_far" : -3,
+
+    "right_far" : 15,
+
+    "far" : 9,
+
+    "has_fired" : 0,
+
+    "duration" : 110
+
+  },
+
+  {
+
+    "left_close" : 5,
+
+    "right_close" : -5,
+
+    "close" : -32,
+
+    "far" : 0,
+
+    "left_far" : 5,
+
+    "right_far" : -5,
+
+    "has_fired" : 0,
+
+    "duration" : 120
+
+  }
+
+];
+
+
+
+//vars
+
+var x_old = 0;
+
+var x_int = 0;
+
+var line1 = 0;
+
+var line2 = 0;
+
+var line3 = 0;
+
+var line4 = 0;
+
+var line5 = 0;
+
+var leftCounter = 0;
+
+var rightCounter = 0;
+
+var tick_counter = 0;
+
+var line_tick_counter = 0;
+
+var state = 0;
+
+var current_gun = 0;
+
+var box_speed = 0;
+
+var fire_timer = -1;
+
+var do_fire_flag = false;
+
+var fire_left_enc_start = 0;
+
+var fire_right_enc_start = 0;
+
+var box_speed_flag = false;
+
+var left_encoder_count = 0;
+
+var right_encoder_count = 0;
+
+var fire_stop_time = 0;
+
+var fire_stop_flag = false;
+
+
+
+function follow_line_tick() {
+
+
+
+  var x = 0;
+
+
+
+  if ((line2 == 1) && (line3 == 0) && (line4 == 1)) {x=0;}     //WBW
+
+  if ((line2 == 1) && (line3 == 0) && (line4 == 0)) {x=0.5;}   //WBB
+
+  if ((line2 == 0) && (line3 == 0) && (line4 == 1)) {x=-0.5;}  //BBW
+
+  if ((line2 == 1) && (line3 == 1) && (line4 == 0)) {x=1;}     //WWB
+
+  if ((line2 == 0) && (line3 == 1) && (line4 == 1)) {x=-1;}    //BWW
+
+  if ((line2 == 1) && (line3 == 1) && (line4 == 1)) {x=(x_old >= 0 ? 1 : -1);} //WWW
+
+  if ((line2 == 0) && (line3 == 0) && (line4 == 0)) {x=0;}     //BBB
+
+
+
+  if (x==0) {x_int = 0;}
+
+  u = k_p*x + k_i*x_int + k_d*(x - x_old);
+
+  x_int += x;
+
+  x_old = x;
+
+
+
+  leftMotor_setPower(-speed + u);
+
+  rightMotor_setPower(-speed - u); 
+
+
+
+  line_tick_counter ++;
+
+  //if (line_tick_counter == 20) {
+
+    print("Line: " + line1 + line2 + line3 + line4 + line5 + " u=" + u + " x=" + x);
+
+//    line_tick_counter = 0;
+
+//  }
+
+
+
+}
+
+
+
+function read_sensors(){
+
+
+
+  leftCounter = leftEncoder_read();
+
+  rightCounter = rightEncoder_read();
+
+
+
+  line1 = lineSensor1_read();
+
+  line2 = lineSensor2_read();
+
+  line3 = lineSensor3_read();
+
+  line4 = lineSensor4_read();
+
+  line5 = lineSensor5_read();
+
+
+
+  if (line1 <= 20) {line1 = 0;} else {line1 = 1;} //62-23 30-12 
+
+  if (line2 <= 50) {line2 = 0;} else {line2 = 1;} // 99- 0
+
+  if (line3 >= 50) {line3 = 0;} else {line3 = 1;}  //99-25
+
+  if (line4 <= 50) {line4 = 0;} else {line4 = 1;} // 99- 0
+
+  if (line5 <= 20) {line5 = 0;} else {line5 = 1;} // 52-21// 30-10
+
+
+
+ /*if (line1 <= 20) {line1 = 0;} else {line1 = 1;} //62-23
+
+  if (line2 <= 50) {line2 = 0;} else {line2 = 1;} // 99- 0
+
+  if (line3 >= 50) {line3 = 0;} else {line3 = 1;}  //99-25
+
+  if (line4 <= 50) {line4 = 0;} else {line4 = 1;} // 99- 0
+
+  if (line5 <= 19) {line5 = 0;} else {line5 = 1;} // 52-20
+
+*/
+
+
+
+
+
+}
+
+
+
+function stop_motors() {
+
+  leftMotor_setPower(0);
+
+  rightMotor_setPower(0);
+
+}
+
+
+
+function start_motors() {
+
+  leftMotor_setPower(-100);
+
+  rightMotor_setPower(-100);
+
+}
+
+
+
+function turn_right() {
+
+  leftMotor_setPower(-100);
+
+  rightMotor_setPower(100);
+
+}
+
+
+
+function turn_left() {
+
+  leftMotor_setPower(100);
+
+  rightMotor_setPower(-100);
+
+}
+
+
+
+function wait_encod_cross() {
+
+  left_encoder_count = leftEncoder_read();
+
+  while (leftEncoder_read() - left_encoder_count < encod_cross) {
+
+    //print("encod work"+leftEncoder_read());
+
+    brick.wait(20);
+
+  }
+
+}
+
+
+
+brick.objectSensor().init(true);
+
+brick.wait(10000);
+
+brick.system('echo "hsv 160 25 80 20 50 50" > /run/object-sensor.in.fifo');//options for search box (GREEN color)
+
+//brick.system('echo "hsv 330 30 50 50 70 30" > /run/object-sensor.in.fifo');
+
+
+
+// Main loop.
+
+print("case 0");
+
+while (true) {
+
+
+
+  var loop_time = brick.time();
+
+
+
+  read_sensors();
+
+//print("Line: " + line1 + line2 + line3 + line4 + line5 + " u=" + u + " x=" + x);
+
+//follow_line_tick();
+
+//continue;
+
+  //to fire or not to fire
+
+  if (state == 5 || state == 7 || state == 8) {
+
+      if (!guns[current_gun]["has_fired"]){
+
+        var arr = brick.objectSensor().read();
+        var mid = (arr[2] >= mid_box_size)? 
+                  guns[current_gun]["close"] :  
+                  guns[current_gun]["far"];
+
+        //print(arr[0] + " " + arr[2] + " " + mid);
+
+        if ((arr[0] <= (mid + fire_delta)) && (arr[0] >= (mid - fire_delta)) &&
+
+            (arr[2] > (far_box_size / 2))) {
+
+          //print("Do fire:");
+
+          //print(arr);
+
+          do_fire_flag = true;
+
+        }
+
+      } 
+
+  }
+
+
+
+
+
+  switch (state){
+
+    case 0:    //Stoim na zelenom
+
+      //wait button press for START
+
+      if (brick.keys().wasPressed(103)) {
+
+        //103-->button UP
+
+        state++;
+
+        print("case 1");
+
+      }
+
+      break;
+
+    case 1:    //Go vpered poka ne budet www
+
+        left_encoder_count = leftEncoder_read();
+
+        right_encoder_count = rightEncoder_read();
+
+        start_motors();
+        
+        while (leftEncoder_read() - left_encoder_count < 300) {
+
+          brick.wait(20);
+
+        }
+
+        stop_motors();
+
+        state++;
+
+        print("case 2");
+
+      break;
+
+    case 2:
+
+      left_encoder_count = leftEncoder_read();
+
+      right_encoder_count = rightEncoder_read();
+
+      turn_right();
+
+      
+      while (leftEncoder_read() - left_encoder_count < 170) {
+
+        brick.wait(20);
+
+      }
+
+
+      left_encoder_count = leftEncoder_read();
+
+      right_encoder_count = rightEncoder_read();
+
+      start_motors();
+
+
+      while (leftEncoder_read() - left_encoder_count < 590) {
+
+        brick.wait(20);
+
+      }
+
+
+
+      right_encoder_count = rightEncoder_read();
+
+      turn_left();
+
+      while (rightEncoder_read() - right_encoder_count > -190) {
+
+        brick.wait(20);
+
+      }
+
+
+
+      stop_motors();
+
+
+
+      state++;
+
+      print("case 3");
+
+      break;
+
+
+    case 3:    //Go forward until T-cross 
+
+	
+
+	follow_line_tick();
+
+      if (line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+        start_motors();	
+
+	//brick.wait(400);
+
+        wait_encod_cross();
+
+        print("case 4");
+
+      }
+
+      break;
+
+    case 4:    //Go forward until X-cross 
+
+
+      follow_line_tick();
+
+
+      if (/*line1 == 0 &&  line2 == 0 && */line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+	start_motors();
+
+        wait_encod_cross();
+
+
+
+        // Store encoders to wait for fire if needed.
+
+        left_encoder_count = leftEncoder_read();
+
+        right_encoder_count = rightEncoder_read();
+
+        print("case 5");
+
+      }
+
+      break;
+
+
+
+    case 5:    //Go forward until X-cross
+
+      // Fire first!
+
+      if (do_fire_flag) {
+
+        print("fire first");
+
+        stop_motors();
+
+        servo.setPower(40);
+
+        brick.wait(guns[current_gun]["duration"]);
+
+        servo.powerOff();
+        
+        do_fire_flag = false;
+
+        guns[current_gun]["has_fired"] = true;
+        
+        start_motors();
+
+    	brick.playSound("media/2_frags.wav");     
+
+      }
+
+
+
+      if (!fire_stop_flag &&
+
+          !guns[current_gun]["has_fired"] &&
+
+          (leftEncoder_read() - left_encoder_count) > 500 ||
+
+          fire_stop_flag && (brick.time() - fire_stop_time) < fire_stop_timeout) {
+
+        // Follow line again if we stopped and waited for fire too long.
+
+        if (!fire_stop_flag) {
+
+          stop_motors();
+
+          fire_stop_flag = true;
+
+          fire_stop_time = brick.time();
+
+        }
+
+      }
+
+      else {
+
+        // Random shoot after stop timeout.
+
+        if (fire_stop_flag && !(guns[current_gun]["has_fired"])) {
+
+          servo.setPower(40);
+
+          brick.wait(guns[current_gun]["duration"]);
+
+          servo.powerOff();
+
+          do_fire_flag = false;
+
+          guns[current_gun]["has_fired"] = true;
+
+	      brick.playSound("media/2_frags.wav");     
+          
+        }
+
+        follow_line_tick();
+
+      }
+
+
+
+      if (line1 == 0 && /*line2 == 0 &&*/ line3 == 0 && /*line4 == 0 &&*/ line5 == 0) {
+
+	   start_motors();
+
+	state++;
+
+        current_gun++;
+
+        fire_stop_flag = false;
+
+        fire_stop_time = 0;
+
+        print("case 6");
+
+    	wait_encod_cross();        
+
+      }
+
+      break;
+
+
+
+    case 6:    //Go forward until T-cross 
+
+      follow_line_tick();
+
+      if (line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+        // Turn 90 left.
+
+	//start_motors();
+
+	//wait_encod_cross(); 
+
+        left_encoder_count = leftEncoder_read();
+
+        right_encoder_count = rightEncoder_read();
+
+        start_motors();
+
+        while (rightEncoder_read() - right_encoder_count > -182) {
+
+          brick.wait(10);
+
+        }
+
+        left_encoder_count = leftEncoder_read()
+
+        right_encoder_count = rightEncoder_read();
+
+        turn_left();
+
+	//start_motors();	
+
+
+        while (rightEncoder_read() - right_encoder_count > -190) {
+
+          brick.wait(20);
+
+        }
+
+        print("case 7");
+
+      }
+
+      break;
+
+
+
+    case 7:    //Go forward until X-cross 
+
+      // Fire second!
+
+      if (do_fire_flag) {
+
+        print("fire second");
+
+        stop_motors();
+
+        servo.setPower(40);
+
+        brick.wait(guns[current_gun]["duration"]);
+
+        servo.powerOff();
+
+		do_fire_flag = false;
+
+        guns[current_gun]["has_fired"] = true;
+
+        start_motors();
+
+        brick.playSound("media/1_frag.wav");
+
+      }
+
+
+
+      if (!fire_stop_flag &&
+
+          !guns[current_gun]["has_fired"] &&
+
+          (leftEncoder_read() - left_encoder_count) > 150 ||
+
+          fire_stop_flag && (brick.time() - fire_stop_time) < fire_stop_timeout) {
+
+        // Follow line again if we stopped and waited for fire too long.
+
+        if (!fire_stop_flag) {
+
+          stop_motors();
+
+          fire_stop_flag = true;
+
+          fire_stop_time = brick.time();
+
+        }
+
+      }
+
+      else {
+
+        // Random shoot after stop timeout.
+
+        if (fire_stop_flag && !(guns[current_gun]["has_fired"])) {
+
+          servo.setPower(40);
+
+          brick.wait(guns[current_gun]["duration"]);
+
+          servo.powerOff();
+
+          do_fire_flag = false;
+
+          guns[current_gun]["has_fired"] = true;
+
+           brick.playSound("media/1_frag.wav");
+
+        }
+
+        follow_line_tick();
+
+      }
+
+
+
+      if (line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+        // Turn 90 left.
+
+	//start_motors();
+
+	//wait_encod_cross(); 
+
+        
+        left_encoder_count = leftEncoder_read();
+
+        right_encoder_count = rightEncoder_read();
+
+        start_motors();
+
+        while (rightEncoder_read() - right_encoder_count > -182) {
+
+          brick.wait(10);
+
+        }
+
+        left_encoder_count = leftEncoder_read()
+
+        right_encoder_count = rightEncoder_read();
+       
+        turn_left();
+
+	//start_motors();	
+
+       
+        while (rightEncoder_read() - right_encoder_count > -180) {
+
+          brick.wait(20);
+
+        }
+        /*if (//line1 == 0 && line2 == 0 && //line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+        current_gun++;
+
+        fire_stop_flag = false;
+
+        fire_stop_time = 0;
+
+        // To go from cross forward.
+
+        start_motors();
+
+        wait_encod_cross();
+
+        // Turn 90 left.
+
+        turn_left();
+
+        left_encoder_count = leftEncoder_read();
+
+        right_encoder_count = rightEncoder_read();//bol
+
+        while (rightEncoder_read() - right_encoder_count > -190) {//250
+
+          brick.wait(20);
+
+        }*/
+
+        left_encoder_count = leftEncoder_read();
+
+        right_encoder_count = rightEncoder_read();
+
+        print("case 8");
+
+      }
+
+      break;
+
+
+
+    case 8:    //Go forward until X-cross 
+
+      // Fire 3!
+      //follow_line_tick();
+
+      if (do_fire_flag) {
+
+        print("fire second");
+
+        stop_motors();
+
+        servo.setPower(40);
+
+        brick.wait(guns[current_gun]["duration"]);
+
+        servo.powerOff();
+
+    	do_fire_flag = false;
+
+        guns[current_gun]["has_fired"] = true;
+
+        start_motors();
+
+        	brick.playSound("media/takenlead.wav");        
+
+
+      }
+
+
+
+      if (!fire_stop_flag &&
+
+          !guns[current_gun]["has_fired"] &&
+
+          (leftEncoder_read() - left_encoder_count) > 250 ||
+
+          fire_stop_flag && (brick.time() - fire_stop_time) < fire_stop_timeout) {
+
+        // Follow line again if we stopped and waited for fire too long.
+
+        if (!fire_stop_flag) {
+
+          stop_motors();
+
+          fire_stop_flag = true;
+
+          fire_stop_time = brick.time();
+
+        }
+
+      }
+
+      else {
+
+        // Random shoot after stop timeout.
+
+        if (fire_stop_flag && !(guns[current_gun]["has_fired"])) {
+
+          servo.setPower(40);
+
+          brick.wait(guns[current_gun]["duration"]);
+
+          servo.powerOff();
+
+          do_fire_flag = false;
+
+          guns[current_gun]["has_fired"] = true;
+
+        }
+
+        follow_line_tick();
+
+      }
+
+
+
+      if (/*line1 == 0 && line2 == 0 && */line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+	
+
+        current_gun++;
+
+        fire_stop_flag = false;
+
+        fire_stop_time = 0;
+
+        print("case 9");
+
+        start_motors();
+
+        wait_encod_cross();// To go from cross.
+
+      }
+
+      break;
+
+
+
+    case 9:    //Go forward until T-cross 
+
+      
+	
+      start_motors();
+      brick.wait(100);//////////////////////////////////
+
+      follow_line_tick();
+      
+
+      if (line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+        start_motors();
+
+        wait_encod_cross(); // To go from cross.
+
+        print("case 10");
+
+      }
+
+      break;
+
+
+
+    case 10:    //Go forward until T-cross
+
+      follow_line_tick();
+
+      if (line3 == 0 && line4 == 0 && line5 == 0) {
+
+        state++;
+
+        var fin_line = 0;
+
+        var stop_time = brick.time();
+
+        start_motors();
+
+        wait_encod_cross();// To go from cross.
+
+        left_encoder_count = leftEncoder_read();
+
+        right_encoder_count = rightEncoder_read();
+
+        print("case 11");
+
+      }
+
+      break;
+
+
+
+    case 11:    //Parking
+
+      // Go forward.
+
+      start_motors();
+
+      while (leftEncoder_read() - left_encoder_count < 900) {
+
+        brick.wait(20);
+
+      }
+
+      // Turn left 45 degree.
+
+      left_encoder_count = leftEncoder_read();
+
+      right_encoder_count = rightEncoder_read();
+
+      leftMotor_setPower(40);
+
+      while (rightEncoder_read() - right_encoder_count > -260) {
+
+        brick.wait(20);
+
+      }
+
+      // Go forward.
+
+      left_encoder_count = leftEncoder_read();
+
+      right_encoder_count = rightEncoder_read();
+
+      start_motors();
+
+      while (leftEncoder_read() - left_encoder_count < 970) {
+
+        brick.wait(20);
+
+      }
+
+      // Turn left.
+
+      left_encoder_count = leftEncoder_read();
+
+      right_encoder_count = rightEncoder_read();
+
+
+
+      rightMotor_setPower(40);
+
+      leftMotor_setPower(-100);
+
+      while (leftEncoder_read() - left_encoder_count < 260) {
+
+        brick.wait(20);
+
+      }
+
+      // Stop and wait for start button.
+
+      stop_motors();
+
+      servo.setPower(40);
+
+      brick.wait(210);
+
+      servo.powerOff();
+
+      state = 0;
+
+      x_old = 0;
+
+      x_int = 0;
+
+      line1 = 0;
+
+      line2 = 0;
+
+      line3 = 0;
+
+      line4 = 0;
+
+      line5 = 0;
+
+      leftCounter = 0;
+
+      rightCounter = 0;
+
+      tick_counter = 0;
+
+      line_tick_counter = 0;
+
+      state = 0;
+
+      current_gun = 0;
+
+      box_speed = 0;
+
+      fire_timer = -1;
+
+      do_fire_flag = false;
+
+      fire_left_enc_start = 0;
+
+      fire_right_enc_start = 0;
+
+      box_speed_flag = false;
+
+      left_encoder_count = 0;
+
+      right_encoder_count = 0;
+
+      brick.playSound("media/impressive_a.wav");     
+      print("Parked!");
+
+      brick.wait(3000) // to play sound
+      
+      break;
+
+  }
+
+  tick_counter ++;
+
+
+
+  //print("Loop time: " + (brick.time() - loop_time));
+
+  //brick.wait(20);
+
+}
+
+Неужели код, находящийся ЗА while(true) циклом реально выполняется???
+
+brick.objectSensor().stop();
+
+stop_motors(); 
+
+brick.stop(); 
+
+//brick.quit(); jk : only for event-driven mode

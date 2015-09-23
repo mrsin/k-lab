@@ -1,0 +1,19 @@
+var servo = brick.motor("E3");
+
+print("start");
+
+brick.run();
+
+servo.setPower(90);
+
+brick.wait(5000);
+
+brick.stop();
+print("finish");
+brick.quit();
+
+
+
+
+// echo 600000 > /sys/class/pwm/ehrpwm.1:1/duty_ns
+// echo 2200000 > /sys/class/pwm/ehrpwm.1:1/duty_ns

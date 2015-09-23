@@ -1,0 +1,38 @@
+//var gamepad = script.gamepad();
+var powerMotorRight = brick.motor("M2");
+var powerMotorLeft = brick.motor("M1");
+var motorHandUpDown = brick.motor("E2");
+var handServo = brick.motor("E1");
+
+gamepad.pad.connect(
+        function(padId, x, y) {
+                if (padId == 1) {
+                        if (y > 30) {
+                                motorHandUpDown.setPower((y - 30) * 100 / 70);
+                        } else if (y < -30) {
+                                motorHandUpDown.setPower((y + 30) * 100 / 70);
+                        } else {
+                                handServo.setPower((x - 100) / 2);
+                        }
+                }
+
+                if (padId == 2) {
+                        powerMotorLeft.setPower(x + y);
+                        powerMotorRight.setPower(x - y);
+                }
+        }
+)
+
+gamepad.padUp.connect(
+        function(padId, x, y) {
+                if (padId == 1) {
+                        motorHandUpDown.powerOff();
+                        handServo.powerOff();
+                } else if (padId == 2) {
+                        powerMotorLeft.powerOff();
+                        powerMotorRight.powerOff();
+                }
+        }
+)
+
+script.run();
