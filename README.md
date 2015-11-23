@@ -13,3 +13,11 @@ https://github.com/mrsin/Dynamixel_Test
 https://github.com/mrsin/Blink_CubeMX_STM32F429I
 
 Пример инициализирует периферию и мигает светодиодом с помощью библиотеки HAL.
+
+## Android
+
+https://github.com/mrsin/AccelGyro
+Пример работы с акселерометром, гироскопом и вибро на Android.
+
+https://github.com/mrsin/TextToSpeech
+Пример преобразования текста в речь на русском языке для Android.
