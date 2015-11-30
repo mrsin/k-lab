@@ -16,14 +16,14 @@ https://github.com/mrsin/Arduino_Serial_Pipe
 https://github.com/mrsin/Blink_CubeMX_STM32F429I
 Инициализирует периферию и мигает светодиодом с помощью библиотеки HAL.
 
-Читаем сырые данные с акселерометра ADXL345 и гироскопа ITG 3200 по протоколу I2C с помощью библиотеки HAL.
 https://github.com/mrsin/STM32F429I_ITG-3200_ADXL345
+Читаем сырые данные с акселерометра ADXL345 и гироскопа ITG 3200 по протоколу I2C с помощью библиотеки HAL.
 
 То же самое с использованием DMA.
 https://github.com/mrsin/STM32F429I_ITG-3200_ADXL345_DMA
 
-Получаем и отправляем данные через UART с использованием DMA.
 https://github.com/mrsin/STM32F429I_UART_DMA_loop
+Получаем и отправляем данные через UART с использованием DMA.
 
 
 ## Android
