@@ -1,5 +1,5 @@
-# k-lab
-http://vk.com/k__lab
+# K-LAB
+Проекты лабораториии робототехники и мехатроники КубГУ (http://vk.com/k__lab).
 
 
 ## Arduino
