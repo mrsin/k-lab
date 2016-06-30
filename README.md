@@ -5,7 +5,7 @@
 ## Arduino
 
 https://github.com/mrsin/Dynamixel_Test
-Управляет и читает данные с сервы SPRINGRC SR508H по протоколу Dynamixel на Arduino Mega через библтотеку DynamixelSerial1.
+Управляет и читает данные с сервы SPRINGRC SR508H по протоколу Dynamixel на Arduino Mega через библиотеку DynamixelSerial1.
 
 https://github.com/mrsin/Arduino_Serial_Pipe
 Пересылает данные из первого последовательного порта  Serial1 (RX1/TX1 на Arduino Mega) в USB Serial и обратно.
@@ -25,6 +25,8 @@ https://github.com/mrsin/STM32F429I_ITG-3200_ADXL345_DMA
 https://github.com/mrsin/STM32F429I_UART_DMA_loop
 Получаем и отправляем данные через UART с использованием DMA.
 
+https://github.com/mrsin/STM32F3_Encoder
+Чтение квадратурного энкодера аппаратным таймером STM32F303 + картинки настройки таймера в CubeMX.
 
 ## Android
 
