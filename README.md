@@ -28,6 +28,9 @@ https://github.com/mrsin/STM32F429I_UART_DMA_loop
 https://github.com/mrsin/STM32F3_Encoder
 Чтение квадратурного энкодера аппаратным таймером STM32F303 + картинки настройки таймера в CubeMX.
 
+https://github.com/alus96/STM32CAN
+Передача данных по CAN в режиме петли (данные передаются и принимаются внутри микроконтроллера) на STM32F407
+
 ## Android
 
 https://github.com/mrsin/AccelGyro
